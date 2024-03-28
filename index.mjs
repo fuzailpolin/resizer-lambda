@@ -8,10 +8,12 @@ import sharp from "sharp";
 const S3 = new S3Client();
 const DEST_BUCKET = process.env.DEST_BUCKET;
 const THUMBNAIL_WIDTH = 200; // px
+const MEDIUM_WIDTH = 600; // px
 const SUPPORTED_FORMATS = {
   jpg: true,
   jpeg: true,
   png: true,
+  webp: true,
 };
 
 export const handler = async (event, context) => {
@@ -45,16 +47,31 @@ export const handler = async (event, context) => {
     await S3.send(
       new PutObjectCommand({
         Bucket: DEST_BUCKET,
-        Key: srcKey,
+        Key: `resize200/${srcKey}`,
         Body: outputBuffer,
         ContentType,
       })
     );
-    const message = `Successfully resized ${srcBucket}/${srcKey} and uploaded to ${DEST_BUCKET}/${srcKey}`;
+    const message = `Successfully resized ${srcBucket}/${srcKey} and uploaded to ${DEST_BUCKET}/resize200/${srcKey}`;
     console.log(message);
+
+    const mediumOutputBuffer = await sharp(image)
+      .resize(MEDIUM_WIDTH)
+      .toBuffer();
+
+    // store new image in the destination bucket
+    await S3.send(
+      new PutObjectCommand({
+        Bucket: DEST_BUCKET,
+        Key: `resize600/${srcKey}`,
+        Body: mediumOutputBuffer,
+        ContentType,
+      })
+    );
+
     return {
       statusCode: 200,
-      body: message,
+      body: { message, messageMedium },
     };
   } catch (error) {
     console.log(error);
